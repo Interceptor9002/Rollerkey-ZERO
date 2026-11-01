@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="RollerKey ZERO">
+<meta name="theme-color" content="#000000">
+<title>RollerKey ZERO</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  :root{--bg:#000;--card:#040b06;--line:#0e3d22;--txt:#4dff92;--dim:#2b8555;--acc:#00ff6a;--warn:#ffd400;--bad:#ff4d4d;--sb:env(safe-area-inset-bottom,0px)}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--txt);font:17px/1.5 ui-monospace,Menlo,monospace;display:flex;flex-direction:column;overflow:hidden}
+  header{padding:calc(env(safe-area-inset-top,0px) + 16px) 18px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  h1{font-size:19px;margin:0;letter-spacing:2px;color:var(--acc)}
+  .led{width:10px;height:10px;border-radius:50%;background:#3a1010;display:inline-block;margin-right:8px}
+  .led.on{background:var(--acc);box-shadow:0 0 12px var(--acc)}
+  main{flex:1;overflow-y:auto;padding:16px 16px calc(40px + var(--sb))}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}
+  .big{font-size:20px;font-weight:700;padding:22px;border-radius:16px;border:2px solid var(--acc);background:var(--acc);color:#001b0b;width:100%;font-family:inherit;letter-spacing:1px;margin-bottom:10px}
+  .big:disabled{opacity:.3}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .s{font-size:14px;padding:15px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--acc);font-family:inherit;font-weight:700}
+  .s:disabled{opacity:.28}
+  .s.red{color:var(--bad);border-color:#4d1414}
+  .stat{font-size:14px;font-weight:700;padding:12px;border-radius:12px;border:1px solid var(--line);margin-bottom:12px;color:var(--dim)}
+  .stat.ok{color:var(--acc);border-color:#0e5c33;background:#00170c}
+  .stat.warn{color:var(--warn);border-color:#5c4a0e;background:#171200}
+  .stat.bad{color:var(--bad);border-color:#5c1414;background:#170000}
+  .wrap{position:relative;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:3/4;margin-bottom:12px;border:1px solid var(--line);display:none}
+  .wrap.on{display:block}
+  video{width:100%;height:100%;object-fit:cover;display:block}
+  .wrap::after{content:"";position:absolute;inset:15% 10%;border:2px solid var(--acc);border-radius:16px;pointer-events:none}
+  .t{font-size:38px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--acc);letter-spacing:-1px}
+  pre{background:#000;border:1px solid var(--line);border-radius:10px;padding:11px;font-size:11px;overflow:auto;max-height:200px;color:var(--txt);white-space:pre-wrap}
+  details{border:1px solid var(--line);border-radius:14px;padding:12px;background:var(--card);margin-bottom:12px}
+  summary{cursor:pointer;font-size:12px;letter-spacing:1.2px;color:var(--dim);text-transform:uppercase}
+  details[open] summary{margin-bottom:12px;color:var(--acc)}
+  input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:#000;color:var(--txt);font:inherit;font-size:14px;margin-bottom:8px}
+  .lbl{font-size:11px;color:var(--dim);display:block;margin:6px 0 4px}
+  p{margin:0 0 10px;color:var(--dim);font-size:13px}
+  .help{font-size:12.5px;color:var(--warn);border:1px solid #4d3f14;background:#171200;border-radius:12px;padding:12px;margin-bottom:12px;line-height:1.55}
+  .help b{color:#fff3b0}
+  .row{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-top:8px}
+  label.cb{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--txt);margin:4px 0 10px}
+  label.cb input{width:auto;margin:0;transform:scale(1.3)}
+  .brands{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .brands button{padding:11px 4px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--dim);font:inherit;font-size:13px;font-weight:700}
+  .brands button.on{background:var(--acc);color:#001b0b;border-color:var(--acc)}
+</style>
+</head>
+<body>
+<header><h1>ROLLERKEY ZERO</h1><span><span class="led" id="led"></span><span style="font-size:12px;color:var(--dim)" id="state">BEREIT</span></span></header>
+
+<main>
+  <div id="status" class="stat">Verbinden, scannen — der Rest läuft allein.</div>
+
+  <div class="help">
+    <b>Wenn iOS nach einem Code fragt:</b> <b>000000</b>, sonst <b>123456</b>. Danach „Koppeln".
+  </div>
+
+  <div class="wrap" id="camBox"><video id="vid" playsinline muted autoplay></video></div>
+  <button class="big" id="go">VERBINDEN &amp; SCANNEN</button>
+
+  <div class="card">
+    <h2 style="font-size:11px;margin:0 0 9px;letter-spacing:1.4px;color:var(--dim)">MARKE</h2>
+    <div class="brands" id="brands"></div>
+  </div>
+
+  <div class="card">
+    <div class="grid">
+      <button class="s" id="again" disabled>Entsperren</button>
+      <button class="s red" id="lock" disabled>Sperren</button>
+      <button class="s" id="mon" disabled>Motor frei</button>
+      <button class="s" id="moff" disabled>Motor aus</button>
+      <button class="s" id="lon" disabled>Licht an</button>
+      <button class="s" id="loff" disabled>Licht aus</button>
+    </div>
+    <div class="row"><span>Antworten: <b id="acks">0</b></span><span>Kanal: <b id="chan">–</b></span></div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="margin:0"><span>Firmware: <b id="fw">–</b></span><span id="fwMode">–</span></div>
+  </div>
+
+  <div class="card"><div class="t" id="timer">00:00</div></div>
+
+  <div class="card">
+    <h2 style="font-size:11px;margin:0 0 9px;letter-spacing:1.4px;color:var(--dim)">KONSOLE</h2>
+    <pre id="log">bereit.</pre>
+    <div class="grid" style="margin-top:8px">
+      <button class="s" id="copylog">Kopieren</button>
+      <button class="s" id="clearlog">Leeren</button>
+    </div>
+  </div>
+
+  <details>
+    <summary>Automatik</summary>
+    <p>Probt Kanäle und Befehle, merkt sich was zieht, liest Firmware und Protokoll.</p>
+    <div class="row" style="margin:0 0 8px"><span>Profil: <b id="prof">leer</b></span><span id="profCh">–</span></div>
+    <button class="s" id="wire" style="width:100%;margin-bottom:8px" disabled>Neu verdrahten</button>
+    <button class="s" id="wipe" style="width:100%;margin-bottom:8px">Profil löschen</button>
+    <label class="cb"><input type="checkbox" id="filter"> Nur Roller-Namen anzeigen</label>
+    <label class="cb"><input type="checkbox" id="slow"> Langsam-Modus</label>
+    <label class="cb"><input type="checkbox" id="wake"> Vorher aufwecken</label>
+    <label class="cb"><input type="checkbox" id="bin"> Binärprotokoll probieren</label>
+    <label class="cb"><input type="checkbox" id="auto"> Server automatisch versuchen</label>
+    <button class="s" id="pair" style="width:100%">Kopplung neu anstoßen</button>
+  </details>
+
+  <details>
+    <summary>Diagnose</summary>
+    <button class="s" id="diag" style="width:100%" disabled>Auslesen</button>
+    <pre id="dlog" style="margin-top:10px;height:150px">–</pre>
+  </details>
+
+  <details>
+    <summary>Server &amp; Konto</summary>
+    <div class="row" style="margin:0 0 8px"><span>Guthaben: <b id="bal">–</b></span><span id="accTag">kein Konto</span></div>
+    <button class="s" id="mkacc" style="width:100%;margin-bottom:8px">Konto anlegen</button>
+    <button class="s" id="resv" style="width:100%;margin-bottom:8px">Reservieren (gratis)</button>
+    <button class="s" id="cancel" style="width:100%;margin-bottom:8px">Reservierung aufheben</button>
+    <button class="s" id="chk" style="width:100%;margin-bottom:8px">Guthaben prüfen</button>
+    <label class="lbl">Eigener Proxy (optional)</label>
+    <input id="proxy" placeholder="leer lassen">
+    <button class="s" id="save" style="width:100%">Speichern</button>
+    <pre id="accLog" style="margin-top:10px;height:110px">–</pre>
+  </details>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+const get=(k,d)=>localStorage.getItem("sf_"+k)??d;
+const set=(k,v)=>localStorage.setItem("sf_"+k,v);
+const err=e=>{ if(!e)return "unbekannt"; if(typeof e==="string")return e; return e.message||e.name||JSON.stringify(e).slice(0,110)||"unbekannt" };
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const uuid=()=>crypto.randomUUID();
+
+const CANDS=[0xffe0,0xffe1,0xfff0,0xff00,0xffb0,0xffe5,0xfe59,0xffa0,0xfff1,0xfff2,0xffe8,0xffc0];
+const U=n=>"0000"+n.toString(16).padStart(4,"0")+"-0000-1000-8000-00805f9b34fb";
+const PREFIX=["lime","bolt","voi","dott","okai","segway","es4","ninebot"];
+const FRAMES=[c=>c,c=>c+"\r",c=>c+"\n",c=>c+"\r\n",c=>"*"+c+"#"];
+const BINS=[c=>[0x02,...new TextEncoder().encode(c),0x03],c=>[0xAA,...new TextEncoder().encode(c)],c=>[...new TextEncoder().encode(c),0x0D,0x0A]];
+const WAKE=["WS","WS","WS"];
+const MOTOR=["US","KS","KS"];
+const BASEV=["WS","US","KS","MS","K1","K0","M1","M0","UN","UL","U1","RS","ST","ON","OF","1","2","A","E"];
+const BRANDS={
+  lime:{n:"Lime",v:BASEV},
+  bolt:{n:"Bolt",v:["WS","US","KS","MS","UN","UL","1","ON","OF",...BASEV]},
+  voi:{n:"Voi",v:["WS","UN","KS","MS","UL","U1","1","2",...BASEV]},
+  dott:{n:"Dott",v:["WS","US","KS","MS","ON","OF","1","2",...BASEV]}
+};
+const BASE="https://web-production.lime.bike/api/rider";
+const MAIL="https://www.1secmail.com/api/v1/";
+const PROXIES=[
+  u=>"https://corsproxy.io/?url="+encodeURIComponent(u),
+  u=>"https://api.allorigins.win/raw?url="+encodeURIComponent(u),
+  u=>"https://api.codetabs.com/v1/proxy/?quest="+encodeURIComponent(u)
+];
+
+let dev=null,chans=[],ci=0,gattSrv=null,stream=null,raf=null,tick=null,t0=null,busy=false,acks=0,last="",lastT=0,ride=null,pending=null,recon=0,bound=false,reserved=null;
+let px=0,brand=get("brand","lime"),binary=false;
+const vid=$("#vid"),cv=document.createElement("canvas"),ctx=cv.getContext("2d",{willReadFrequently:true});
+const log=t=>{const p=$("#log");p.textContent+="\n["+new Date().toLocaleTimeString("de-DE",{hour12:false})+"] "+t;p.scrollTop=p.scrollHeight};
+const stat=(t,c)=>{const s=$("#status");s.textContent=t;s.className="stat "+(c||"")};
+const slow=()=>get("slow","0")==="1";
+const P=ms=>slow()?Math.round(ms*2):ms;
+const DLY=()=>P(Math.max(200,parseInt(get("delay","650"),10)||650));
+const H=()=>({authorization:"Bearer "+get("lime",""),"content-type":"application/json",platform:"iOS","app-version":"3.248.1","x-device-token":get("dev",""),"accept-language":"de-DE"});
+const geo=()=>new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(p=>res({lat:p.coords.latitude,lng:p.coords.longitude}),rej,{timeout:8000}));
+const online=()=>navigator.onLine;
+const autoSrv=()=>get("auto","1")==="1";
+const V=()=>BRANDS[brand].v;
+
+function profile(){ try{ const p=JSON.parse(get("prof","[]")); return Array.isArray(p)&&p.length?p:null }catch(_){ return null } }
+function paintProf(){ const p=profile(); $("#prof").textContent=p?p.join(" "):"leer"; $("#profCh").textContent=get("wire","")?get("wire","").slice(4,8):"–" }
+function paintBrands(){
+  $("#brands").innerHTML=Object.entries(BRANDS).map(([k,b])=>`<button data-b="${k}" class="${k===brand?"on":""}">${b.n}</button>`).join("");
+  document.querySelectorAll("[data-b]").forEach(x=>x.onclick=()=>{ brand=x.dataset.b; set("brand",brand); paintBrands() });
+}
+function ui(){
+  const on=chans.length>0;
+  $("#state").textContent=ride?"FAHRT":(on?"VERBUNDEN":"BEREIT");
+  $("#led").classList.toggle("on",on||!!ride);
+  ["#again","#lock","#mon","#moff","#lon","#loff","#diag","#wire"].forEach(s=>$(s).disabled=!on||busy);
+  ["#resv","#cancel","#mkacc","#chk"].forEach(s=>$(s).disabled=busy);
+  $("#go").disabled=busy;
+  $("#chan").textContent=on?String(ci):"–";
+  $("#accTag").textContent=get("lime","")?"Konto aktiv":"kein Konto";
+  $("#fwMode").textContent=binary?"binär":"ASCII";
+}
+
+async function api(url,opt={}){
+  const custom=get("proxy","").trim();
+  const list=custom?[u=>custom+"?u="+encodeURIComponent(u),...PROXIES]:PROXIES;
+  let lastErr="";
+  for(let i=0;i<list.length;i++){
+    const idx=(px+i)%list.length;
+    try{
+      const r=await fetch(list[idx](url),{method:opt.method||"GET",headers:opt.headers||{},body:opt.body?JSON.stringify(opt.body):undefined});
+      const t=await r.text(); let j; try{ j=JSON.parse(t) }catch(_){ j=t }
+      px=idx; return {status:r.status,data:j};
+    }catch(e){ lastErr=err(e) }
+  }
+  throw new Error("Server nicht erreichbar ("+lastErr+")");
+}
+
+let q=Promise.resolve();
+function rawOut(bytes,label){
+  q=q.then(async()=>{
+    const c=chans[ci]; if(!c) return false;
+    try{
+      const u8=bytes instanceof Uint8Array?bytes:new Uint8Array(bytes);
+      if(c.properties.writeWithoutResponse) await c.writeValueWithoutResponse(u8);
+      else await c.writeValue(u8);
+      log("→ "+label); return true;
+    }catch(e){
+      log("Senden: "+err(e));
+      if(/auth|security|perm/i.test(err(e))) log("→ Kopplung fehlt: Code 000000");
+      return false;
+    }
+  },()=>{});
+  return q;
+}
+function writeTxt(cmd,frameFn){
+  const s=frameFn?frameFn(cmd):cmd;
+  return rawOut(new TextEncoder().encode(s),JSON.stringify(s));
+}
+async function burst(list,frameFn,pause){
+  for(const c of list){ await writeTxt(c,frameFn); await wait(pause) }
+  return acks>0;
+}
+
+/* ---------- Firmware / Protokoll ---------- */
+async function readFirmware(){
+  try{
+    const s=await gattSrv.getPrimaryService(0x180a);
+    const parts=[];
+    for(const [uuid2,name] of [["2a24","Modell"],["2a26","Version"],["2a25","Serie"],["2a29","Hersteller"]]){
+      try{
+        const ch=await s.getCharacteristic(uuid2);
+        const v=await ch.readValue();
+        parts.push(name+": "+new TextDecoder().decode(v).trim());
+      }catch(_){}
+    }
+    if(parts.length){
+      const txt=parts.join(" · ");
+      $("#fw").textContent=txt.slice(0,40);
+      log("Firmware → "+txt);
+    } else { $("#fw").textContent="nicht lesbar"; }
+  }catch(_){ $("#fw").textContent="kein Info-Dienst" }
+}
+function looksBinary(){
+  const arr=[...notifyBytes].slice(-40);
+  if(arr.length<4) return false;
+  const printable=arr.filter(b=>b===9||b===10||b===13||(b>=32&&b<=126)).length;
+  return printable/arr.length<0.75;
+}
+const notifyBytes=[];
+
+/* ---------- Selbstverdrahtung ---------- */
+function rank(ch,i){
+  const u=ch.uuid.toLowerCase();
+  let s=0;
+  if(/ffe1|ffe2|fff1|fff2|ff01|ff02/.test(u)) s+=6;
+  if(ch.properties.notify) s+=3;
+  if(ch.properties.writeWithoutResponse) s+=1;
+  const w=get("wire","");
+  if(w&&ch.uuid===w) s+=20;
+  return s-i*0.01;
+}
+async function autoWire(){
+  if(!chans.length) return false;
+  chans=[...chans].map((c,i)=>({c,s:rank(c,i)})).sort((a,b)=>b.s-a.s).map(x=>x.c);
+  for(let i=0;i<chans.length;i++){
+    ci=i; acks=0;
+    stat("Probe Kanal "+i+" …","warn");
+    await writeTxt("WS",x=>x);
+    await wait(P(800));
+    if(acks>0){ set("wire",chans[i].uuid); log("Kanal reagiert: "+chans[i].uuid.slice(4,8)); paintProf(); return true }
+  }
+  ci=0; log("Kein Kanal reagiert, nehme 0"); return false;
+}
+async function probeCommands(){
+  const found=[];
+  stat("Befehle probieren …","warn");
+  for(const c of V()){
+    acks=0; await writeTxt(c,x=>x); await wait(P(650));
+    if(acks>0) found.push(c);
+  }
+  if(found.length){ set("prof",JSON.stringify(found)); log("Antworten auf: "+found.join(" ")) }
+  binary=looksBinary();
+  if(binary) log("Rückkanal wirkt binär — Binärstufe wird genutzt");
+  $("#fwMode").textContent=binary?"binär":"ASCII";
+  paintProf();
+}
+
+/* ---------- Verbindung ---------- */
+async function waitChannels(ms){
+  const end=Date.now()+ms;
+  while(Date.now()<end){
+    try{
+      gattSrv=await dev.gatt.connect();
+      const out=[];
+      for(const s of CANDS.map(U)){
+        try{
+          (await (await gattSrv.getPrimaryService(s)).getCharacteristics()).forEach(c=>{
+            if(c.properties.write||c.properties.writeWithoutResponse) out.push(c);
+          });
+        }catch(_){}
+      }
+      if(!out.length){
+        try{
+          for(const svc of await gattSrv.getPrimaryServices()){
+            try{ (await svc.getCharacteristics()).forEach(c=>{ if(c.properties.write||c.properties.writeWithoutResponse) out.push(c) }) }catch(_){}
+          }
+        }catch(_){}
+      }
+      if(out.length) return out;
+    }catch(_){}
+    await wait(800);
+  }
+  return [];
+}
+async function connectDevice(){
+  for(let a=1;a<=7;a++){
+    try{
+      if(!dev.gatt.connected) await dev.gatt.connect();
+      const got=await waitChannels(a===1?30000:9000);
+      if(got.length) return got;
+    }catch(e){ log("Versuch "+a+": "+err(e)) }
+    await wait(1200);
+  }
+  return [];
+}
+async function attach(list){
+  chans=list; ci=0; recon=0;
+  chans.forEach(c=>{
+    if(!c.properties.notify) return;
+    c.startNotifications().then(()=>{
+      c.addEventListener("characteristicvaluechanged",e=>{
+        acks++; $("#acks").textContent=acks;
+        const d=new Uint8Array(e.target.value.buffer);
+        notifyBytes.push(...d);
+        if(notifyBytes.length>400) notifyBytes.splice(0,notifyBytes.length-400);
+        let hx=""; for(const b of d) hx+=b.toString(16).padStart(2,"0")+" ";
+        log("← "+JSON.stringify(new TextDecoder().decode(d))+"  [hex "+hx.trim()+"]");
+      });
+    }).catch(()=>{});
+  });
+  log("Kanäle: "+chans.length);
+  ui();
+  await readFirmware();
+  await autoWire();
+}
+async function startLink(){
+  if(!navigator.bluetooth) return stat("Kein Bluetooth. Bluefy nutzen.","bad");
+  const useFilter=get("filter","0")==="1";
+  const opt=[0x180f,0x180a,"battery_service","device_information",...CANDS.map(U)];
+  try{
+    dev=await navigator.bluetooth.requestDevice(useFilter
+      ? {filters:PREFIX.map(p=>({namePrefix:p})),optionalServices:opt}
+      : {acceptAllDevices:true,optionalServices:opt});
+  }catch(e){
+    stat("Suche: "+err(e),"bad"); log("Suche: "+err(e));
+    if(e.name==="NotFoundError") log("Einstellungen → Bluefy → Bluetooth prüfen");
+    return;
+  }
+  log("Gerät: "+(dev.name||"(namenlos)"));
+  if(!bound){
+    bound=true;
+    dev.addEventListener("gattserverdisconnected",async()=>{
+      chans=[]; ui();
+      if(recon>=8){ stat("Verbindung weg.","bad"); return }
+      recon++;
+      stat("Neu verbinden "+recon+"/8 …","warn");
+      const got=await connectDevice();
+      if(got.length){ await attach(got); stat("Wieder verbunden.","ok") }
+      else stat("Verbindung verloren.","bad");
+    });
+  }
+  stat("Verbinde … bei Code 000000 eingeben","warn");
+  const got=await connectDevice();
+  if(!got.length){ stat("Kein Zugriff. Code 000000 / 123456, dann nochmal.","bad"); return }
+  await attach(got);
+  stat("Verbunden. Scannen.","ok");
+  if(pending){ const p=pending; pending=null; log("Nachgeholter QR: "+p); unlock(true) }
+  else startCam();
+}
+$("#go").onclick=async()=>{
+  if(chans.length){ startCam(); return }
+  if(dev&&dev.gatt){ const got=await connectDevice(); if(got.length){ await attach(got); startCam(); return } }
+  startLink();
+};
+$("#pair").onclick=async()=>{
+  if(!dev){ startLink(); return }
+  try{ if(dev.gatt.connected) dev.gatt.disconnect() }catch(_){}
+  chans=[]; ui(); await wait(1200);
+  stat("Neu verbinden … Code 000000","warn");
+  const got=await connectDevice();
+  if(got.length){ await attach(got); stat("Verbunden.","ok") } else stat("Kopplung nicht möglich.","bad");
+};
+$("#wire").onclick=async()=>{
+  if(!chans.length||busy) return;
+  busy=true; ui();
+  try{ await readFirmware(); await autoWire(); await probeCommands(); stat("Verdrahtet.","ok") }
+  finally{ busy=false; ui() }
+};
+$("#wipe").onclick=()=>{ localStorage.removeItem("sf_prof"); localStorage.removeItem("sf_wire"); paintProf(); stat("Profil gelöscht.","warn") };
+
+/* ---------- Entsperren ---------- */
+async function unlock(deep){
+  if(busy) return;
+  if(!chans.length){ pending=last; startLink(); return }
+  busy=true; ui(); acks=0;
+  const prof=profile();
+  const wakeOn=get("wake","1")==="1";
+  const deadline=Date.now()+150000;
+
+  const attempt=async(send,label)=>{
+    if(Date.now()>deadline) return false;
+    if(wakeOn){ for(const c of WAKE) await send(c) ; await wait(P(700)) }
+    for(const c of (prof||MOTOR)) await send(c);
+    await wait(P(500));
+    for(const c of ["KS","KS","L1"]) await send(c);
+    if(acks>0){ set("wire",chans[ci].uuid); paintProf(); return true }
+    log("kein ACK · "+label);
+    return false;
+  };
+  const asText=f=>async c=>{ await writeTxt(c,f); await wait(DLY()) };
+  const asBin=f=>async c=>{ await rawOut(f(c),"bin "+c); await wait(DLY()) };
+
+  try{
+    for(let r=1;r<=4;r++){
+      stat("Durchgang "+r+"/4 …","warn");
+      if(await attempt(asText(x=>x),"roh "+r)) return done("Roller offen — Motor frei. Kickstart!");
+      await wait(P(700));
+    }
+    for(let i=0;i<chans.length;i++){
+      ci=i;
+      for(let f=1;f<FRAMES.length;f++){
+        stat("Kanal "+i+" · Variante "+f,"warn");
+        if(await attempt(asText(FRAMES[f]),"kanal "+i+" v"+f)) return done("Roller offen — Motor frei. Kickstart!");
+        await wait(P(400));
+      }
+    }
+    if(get("bin","1")==="1"){
+      for(let i=0;i<chans.length;i++){
+        ci=i;
+        for(let f=0;f<BINS.length;f++){
+          stat("Binär "+f+"/3 · Kanal "+i,"warn");
+          if(await attempt(asBin(BINS[f]),"bin "+f+" kanal "+i)) return done("Roller offen (binär)! Kickstart!");
+          await wait(P(400));
+        }
+      }
+    }
+    ci=0;
+    stat("Befehlssatz …","warn");
+    for(const c of V()){ await writeTxt(c,x=>x); await wait(P(750)); if(acks) return done("Antwort bei "+c+". Kickstart!") }
+    if(deep){
+      stat("Neu verbinden und wiederholen …","warn");
+      try{ if(dev.gatt.connected) dev.gatt.disconnect() }catch(_){}
+      await wait(1200);
+      const got=await connectDevice();
+      if(got.length){
+        await attach(got);
+        for(const f of [0,1,2,3,4]){ if(await attempt(asText(FRAMES[f]),"neu v"+f)) return done("Nach Neuverbindung offen!") }
+      }
+    }
+    if(autoSrv()&&online()){
+      if(!get("lime","")) await makeAccount();
+      if(get("lime","")){
+        stat("Server versuchen …","warn");
+        try{ const r=await rentAny(); ride={server:true,id:r.id}; return done("Über Server entsperrt.") }
+        catch(e){ log("Server: "+err(e)) }
+      }
+    }
+    done("Alles probiert. Anderer Roller.","warn");
+  }catch(e){ stat(err(e),"bad"); log("FEHLER: "+err(e)); busy=false; ui() }
+}
+function done(msg,cls){ busy=false; ride=ride||{}; startTimer(); ui(); stat(msg,cls||"ok") }
+
+$("#again").onclick=()=>unlock(true);
+$("#lock").onclick=async()=>{
+  if(busy||(!chans.length&&!ride)) return;
+  busy=true; ui();
+  try{
+    if(ride&&ride.server) await api(`${BASE}/v1/bikes/${ride.id}/end`,{method:"POST",headers:H(),body:{id:ride.id}});
+    await burst(["MS","KS","L0"],c=>c,P(300));
+    await writeTxt("L0",c=>c);
+    stat("Gesperrt.","ok");
+  }catch(e){ stat("Sperren: "+err(e),"bad") }
+  ride=null; clearInterval(tick); tick=null; busy=false; ui();
+};
+$("#mon").onclick=async()=>{ if(!chans.length||busy) return; busy=true;ui(); acks=0;
+  try{ await burst(["WS","US","KS","KS"],c=>c,DLY()); stat(acks?"Motor frei — bestätigt":"gesendet",acks?"ok":"warn") }
+  finally{ busy=false;ui() } };
+$("#moff").onclick=async()=>{ if(!chans.length||busy) return; busy=true;ui(); acks=0;
+  try{ await burst(["MS","KS"],c=>c,DLY()); stat("Motor aus.","warn") }
+  finally{ busy=false;ui() } };
+$("#lon").onclick=()=>{ if(!chans.length) return; acks=0; writeTxt("L1",c=>c); stat("Licht an.","warn") };
+$("#loff").onclick=()=>{ if(!chans.length) return; acks=0; writeTxt("L0",c=>c); stat("Licht aus.","warn") };
+
+$("#diag").onclick=async()=>{
+  const out=[];
+  try{
+    const srv=await dev.gatt.connect();
+    for(const svc of await srv.getPrimaryServices()){
+      out.push("Dienst "+svc.uuid);
+      try{ for(const c of await svc.getCharacteristics()) out.push("   "+c.uuid+" ["+Object.keys(c.properties).filter(p=>c.properties[p]).join(",")+"]") }
+      catch(_){ out.push("   (nicht lesbar)") }
+    }
+  }catch(e){ out.push("Fehler: "+err(e)) }
+  $("#dlog").textContent=out.join("\n")||"nichts";
+};
+
+async function makeAccount(){
+  const L=$("#accLog");
+  try{
+    const r=await api(MAIL+"?action=genRandomMailbox&count=1");
+    const addr=Array.isArray(r.data)?r.data[0]:null; if(!addr) throw new Error("keine Adresse");
+    set("email",addr); L.textContent="Adresse: "+addr;
+    await api(`${BASE}/v2/onboarding/magic-link`,{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body:{email:addr,user_agreement_country_code:"DE",user_agreement_version:4}});
+    L.textContent+="\nwarte auf Mail …";
+    const [login,domain]=addr.split("@"); let link=null;
+    for(let i=0;i<18&&!link;i++){
+      await wait(3000);
+      const m=await api(`${MAIL}?action=getMessages&login=${login}&domain=${domain}`);
+      if(!Array.isArray(m.data)||!m.data.length) continue;
+      const t=await api(`${MAIL}?action=readMessage&login=${login}&domain=${domain}&id=${m.data[0].id}`);
+      const b=(t.data&&(t.data.body||t.data.textBody))||"";
+      const h=b.match(/https?:\/\/[^\s"'<>]*token=[^\s"'<>]*/); if(h) link=h[0];
+    }
+    if(!link){ L.textContent+="\nkeine Mail"; return }
+    const tok=decodeURIComponent((link.match(/[?&]token=([^&\s]+)/)||[])[1]||link);
+    const d=get("dev","")||uuid(); set("dev",d);
+    const l=await api(`${BASE}/v2/onboarding/login`,{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded","x-device-token":d},body:{magic_link_token:tok}});
+    const tk=l.data&&(l.data.token||(l.data.data&&l.data.data.token));
+    if(tk){ set("lime",tk); L.textContent+="\nKonto aktiv."; ui() } else L.textContent+="\nfehlgeschlagen";
+  }catch(e){ L.textContent+="\n"+err(e) }
+}
+async function refreshBalance(){
+  if(!get("lime","")) return null;
+  for(const p of ["/v1/views/rider_summary","/v1/wallets"]){
+    try{
+      const r=await api(BASE+p,{headers:H()});
+      const m=JSON.stringify(r.data).match(/"balance_cents":(-?\d+)/);
+      if(m){ const v=parseInt(m[1],10); $("#bal").textContent=(v/100).toFixed(2).replace(".",",")+" €"; return v }
+    }catch(_){}
+  }
+  $("#bal").textContent="?"; return null;
+}
+async function nearest(){
+  const g=await geo(), d=0.0018;
+  const r=await api(`${BASE}/v2/map/bike_pins?ne_lat=${g.lat+d}&ne_lng=${g.lng+d}&sw_lat=${g.lat-d}&sw_lng=${g.lng-d}&user_latitude=${g.lat}&user_longitude=${g.lng}&zoom=18`,{headers:H()});
+  const raw=(r.data&&r.data.data)||{};
+  const pins=raw.bikes||(raw.attributes&&raw.attributes.bikes)||[];
+  return pins.map(p=>p.attributes||p).filter(v=>(v.id||v.vehicle_id)&&!v.is_reserved&&!v.is_disabled)
+    .sort((a,b)=>(a.distance||0)-(b.distance||0)).map(v=>v.id||v.vehicle_id);
+}
+async function rentAny(){
+  const ids=(await nearest()).slice(0,3);
+  if(!ids.length) throw new Error("kein Roller in Reichweite");
+  for(const id of ids){
+    const r=await api(`${BASE}/v1/bikes/${id}/rent`,{method:"POST",headers:H(),body:{id}});
+    if(r.status<400) return {id};
+  }
+  throw new Error("abgelehnt");
+}
+async function reserve(){
+  if(!online()) throw new Error("kein Netz");
+  if(!get("lime","")) await makeAccount();
+  const ids=await nearest();
+  if(!ids.length) throw new Error("kein Roller");
+  const id=ids[0];
+  for(const [u,b] of [[`${BASE}/v1/bikes/${id}/reserve`,{id}],[`${BASE}/v2/frontend/vehicles/reserve`,{vehicle_id:id}]]){
+    const r=await api(u,{method:"POST",headers:H(),body:b});
+    if(r.status<400){ reserved=id; return id }
+  }
+  throw new Error("abgelehnt");
+}
+
+async function startCam(){
+  if(stream) return;
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1280}},audio:false});
+    vid.srcObject=stream; await vid.play(); $("#camBox").classList.add("on"); raf=requestAnimationFrame(scan);
+  }catch(e){ stat("Kamera: "+err(e),"bad") }
+}
+function stopCam(){ if(raf)cancelAnimationFrame(raf),raf=null; if(stream){stream.getTracks().forEach(t=>t.stop());stream=null} $("#camBox").classList.remove("on") }
+function scan(){
+  if(!stream) return;
+  if(vid.readyState===4){
+    cv.width=vid.videoWidth; cv.height=vid.videoHeight;
+    ctx.drawImage(vid,0,0,cv.width,cv.height);
+    const d=ctx.getImageData(0,0,cv.width,cv.height);
+    const r=window.jsQR?jsQR(d.data,d.width,d.height,{inversionAttempts:"dontInvert"}):null;
+    if(r&&r.data){
+      const n=Date.now();
+      if(r.data===last&&n-lastT<3000){ raf=requestAnimationFrame(scan); return }
+      last=r.data; lastT=n; stopCam(); log("QR: "+r.data); unlock(true); return;
+    }
+  }
+  raf=requestAnimationFrame(scan);
+}
+if("NDEFReader" in window){
+  const b=document.createElement("button");
+  b.className="s"; b.textContent="NFC-Tag lesen"; b.style.width="100%"; b.style.marginBottom="12px";
+  b.onclick=async()=>{
+    try{
+      const nd=new NDEFReader(); await nd.scan();
+      nd.onreading=e=>{ log("NFC: "+e.serialNumber); stat("NFC gelesen","warn") };
+      stat("NFC aktiv","warn");
+    }catch(e){ stat("NFC: "+err(e),"bad") }
+  };
+  $("#go").after(b);
+}
+
+function startTimer(){
+  clearInterval(tick); t0=Date.now();
+  tick=setInterval(()=>{const s=Math.floor((Date.now()-t0)/1000);
+    $("#timer").textContent=String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0")},1000);
+}
+
+if(!get("dev","")) set("dev",uuid());
+$("#proxy").value=get("proxy","");
+$("#filter").checked=get("filter","0")==="1";
+$("#slow").checked=slow();
+$("#wake").checked=get("wake","1")==="1";
+$("#bin").checked=get("bin","1")==="1";
+$("#auto").checked=autoSrv();
+$("#filter").onchange=()=>set("filter",$("#filter").checked?"1":"0");
+$("#slow").onchange=()=>set("slow",$("#slow").checked?"1":"0");
+$("#wake").onchange=()=>set("wake",$("#wake").checked?"1":"0");
+$("#bin").onchange=()=>set("bin",$("#bin").checked?"1":"0");
+$("#auto").onchange=()=>set("auto",$("#auto").checked?"1":"0");
+$("#save").onclick=()=>{ set("proxy",$("#proxy").value.trim()); $("#save").textContent="Gespeichert ✓" };
+$("#mkacc").onclick=makeAccount;
+$("#chk").onclick=refreshBalance;
+$("#resv").onclick=async()=>{ try{ busy=true;ui(); await reserve(); stat("Reserviert: "+reserved,"ok") }catch(e){ stat(err(e),"bad") } finally{ busy=false;ui() } };
+$("#cancel").onclick=async()=>{ if(!reserved) return; try{ await api(`${BASE}/v1/bikes/${reserved}/reserve/cancel`,{method:"POST",headers:H(),body:{id:reserved}}); stat("Aufgehoben.","ok") }catch(e){ stat(err(e),"bad") } reserved=null };
+$("#copylog").onclick=async()=>{ try{ await navigator.clipboard.writeText($("#log").textContent); $("#copylog").textContent="Kopiert ✓" }catch(_){ $("#copylog").textContent="blockiert" } setTimeout(()=>$("#copylog").textContent="Kopieren",1500) };
+$("#clearlog").onclick=()=>{ $("#log").textContent="bereit."; acks=0; $("#acks").textContent=0 };
+paintBrands(); paintProf(); ui();
+if(online()&&!get("lime","")) makeAccount();
+if(online()&&get("lime","")) refreshBalance();
+if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(()=>{});
+</script>
+</body>
+</html>
